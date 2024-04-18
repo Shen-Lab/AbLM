@@ -20,7 +20,7 @@ We seleced the best configuration in the sense of language modeling based on the
 ![test performance](illustrations/perf_config.png)
 
 ### Data/Model availability
-The weights of pre-trained meta pLM, as well as finetuned antibody LMs can be downloaded from this Zenodo repo. The paired VH-VL sequence set for finetuning is also available.
+The weights of pre-trained meta pLM, as well as finetuned antibody LMs can be downloaded from this [Zenodo repo](https://doi.org/10.5281/zenodo.10989935). The paired VH-VL sequence set for finetuning is also available.
 
 ### Create environment
 Use `conda` command and the provided `.yaml` file to create an environment to run models.
