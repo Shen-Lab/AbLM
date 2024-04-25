@@ -27,3 +27,50 @@ Use `conda` command and the provided `.yaml` file to create an environment to ru
 ```shell
 conda env create -f environment.yaml
 ```
+
+### Finetune meta PLM
+Follow the following steps to finetune the meta protein language model over your own antibody paired VH-VL sequence dataset.
+
+1. First download weights of pre-trained meta PLM [pretrained_meta_model.zip](https://zenodo.org/records/10989935), and unzip to a local folder.
+
+2. Prepare your own antibody finetuning sequence dataset. The information of each sample should be stored in key-value format with key definitions below:
+```json
+"seqVH": str, sequence of the heavy chain variable region,
+"seqVL": str, sequence of the light chain variable region,
+"entityH": str, self-defined identifier of VH, 
+"entityL": str, self-defined identifier of VL,
+"cdr1HIdx": List, indices of residues in the CDR-1H region (relative to seqVH),
+"cdr2HIdx": List, indices of residues in the CDR-2H region (relative to seqVH),
+"cdr3HIdx": List, indices of residues in the CDR-3H region (relative to seqVH),
+"cdr1LIdx": List, indices of residues in the CDR-1L region (relative to seqVL),
+"cdr2LIdx": List, indices of residues in the CDR-2L region (relative to seqVL),
+"cdr3LIdx": List, indices of residues in the CDR-3L region (relative to seqVL),
+"subclassH": str, class label of heavy chain. use 'unknown' if cannot specify (refer to `ab_H_subclass` & `ab_L_subclass` in `tokenizers.py` for details)
+"subclassL": str, class label of light chain. use 'unknown' if cannot specify (refer to `ab_H_subclass` & `ab_L_subclass` in `tokenizers.py` for details)
+```
+The whole dataset should be save to `LMDB` format with 0, 1, 2, ... as keys for sample dictionaries. Remember to add one extra record `"num_examples": #` for storing the total number of samples which will be loaded by the script. One can refer to the [Data.zip](https://zenodo.org/records/10989935) for detailed examples. The name of lmdb data file should follow the patter `HL_pair_{split}.lmdb` where `split` can be `train`, `valid`, or `test`.
+
+3. run the command below to finetune the model
+```python
+conda activate env_ablm
+python src/main.py \
+  run_train \
+  transformer \
+  [task] \
+  --output_dir='exp/results' \
+  --log_dir='exp/logs' \
+  --batch_size=32 \
+  --data_dir='path_to_data_dir' \
+  --from_pretrained 'path_to_model_dir' \
+  --train_split='train' \
+  --valid_split='valid' \
+  --num_train_epochs=100 \
+  --learning_rate=1e-4 \
+  --mlm_mask_stragy=[mask_strategy] \
+  --extra_config_file='/configs/mlm_only.json'
+```
+* `task` can be `antibody_mlm_seqConcate` or  `antibody_mlm_seqIndiv`
+* `mask_strategy` can be `vanilla`, `cdr_vanilla`, `cdr_margin` or `cdr_pair`
+* run `python src/main.py run_train --help` for detailed descriptions for other arguments.
+
+

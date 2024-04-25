@@ -26,7 +26,7 @@ warnings.filterwarnings(  # Ignore pytorch warning about loss gathering
 
 
 def create_base_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description='Parent parser for tape functions',
+    parser = argparse.ArgumentParser(description='Parent parser for functions',
                                      add_help=False)
     parser.add_argument('run_type', choices=['run_train', 'run_eval','run_embed','run_train_distributed','run_antibody_engineer'], 
                         default='run_train', help='which function to run')
@@ -55,12 +55,11 @@ def create_base_parser() -> argparse.ArgumentParser:
     parser.add_argument('--debug', action='store_true', help='Run in debug mode')
     return parser
 
-
 def create_train_parser(base_parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description='Run Training on the TAPE datasets',
+    parser = argparse.ArgumentParser(description='Run Training',
                                      parents=[base_parser])
     parser.add_argument('task', choices=list(registry.task_name_mapping.keys()),
-                        help='TAPE Task to train/eval on')
+                        help='Task to train/eval on')
     parser.add_argument('--learning_rate', default=1e-4, type=float,
                         help='Learning rate')
     parser.add_argument('--batch_size', default=1024, type=int,
@@ -71,10 +70,10 @@ def create_train_parser(base_parser: argparse.ArgumentParser) -> argparse.Argume
                         help='split/subset name of training data')
     parser.add_argument('--valid_split', default='valid', type=str,
                         help='split/subset name of validation data')
-    parser.add_argument('--num_train_epochs', default=10, type=int,
-                        help='Number of training epochs in current cycle')
-    parser.add_argument('--num_train_total_epochs', default=100, type=int,
-                        help='Number of total training epochs')
+    parser.add_argument('--num_train_epochs', default=200, type=int,
+                        help='Number of training epochs in the current cycle')
+    parser.add_argument('--num_train_total_epochs', default=500, type=int,
+                        help='Number of total training epochs combining all cycles')
     parser.add_argument('--num_log_iter', default=20, type=int,
                         help='Number of training steps per log iteration')
     parser.add_argument('--fp16', action='store_true', help='Whether to use fp16 weights')
@@ -99,7 +98,7 @@ def create_train_parser(base_parser: argparse.ArgumentParser) -> argparse.Argume
     parser.add_argument('--eval_freq', type=int, default=1,
                         help="Frequency of eval pass. A value <= 0 means the eval pass is "
                              "not run")
-    parser.add_argument('--save_freq', default=1, type=utils.int_or_str,
+    parser.add_argument('--save_freq', default='improvement', type=utils.int_or_str,
                         help="How often to save the model during training. Either an integer "
                              "frequency or the string 'improvement'")
     parser.add_argument('--save_freq_opt_checkpoint', default='improvement', type=utils.int_or_str,
@@ -116,19 +115,14 @@ def create_train_parser(base_parser: argparse.ArgumentParser) -> argparse.Argume
                         help='learning rate scheduler')
     parser.add_argument('--balancing', action='store_true', help='whether use sequence weight balancing when training')
     parser.add_argument('--save_checkpoint', action='store_true', help='whether saving checkpoint when training')
-    parser.add_argument('--neighbor_strategy', default='knn', choices=['full','knnDistCut','distCut','knn','random','sequential','noGS'], help='strategy to define neighbors in graph, used for seq_structure_multi_task dataset')
-    parser.add_argument('--knn_value', default=20, type=int,
-                        help='num of k nearest neighbors in graph, used for seq_structure_multi_task dataset')
-    parser.add_argument('--dist_cutoff', default=12.0, type=float,
-                        help='max ditance in angstrom to define neighbors in graph, used for seq_structure_multi_task dataset')
+    
     return parser
-
 
 def create_eval_parser(base_parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description='Run Evaluation',
                                      parents=[base_parser])
     parser.add_argument('task', choices=list(registry.task_name_mapping.keys()),
-                        help='TAPE Task to train/eval on')
+                        help='Task to train/eval on')
     parser.add_argument('from_pretrained', type=str,
                         help='Directory containing config and pretrained model weights')
     parser.add_argument('--pretrained_epoch', default=None, type=utils.int_or_str,
@@ -154,13 +148,6 @@ def create_eval_parser(base_parser: argparse.ArgumentParser) -> argparse.Argumen
     parser.add_argument('--output_pred', action='store_true', help='Whether to save outputs')
     parser.add_argument('--mlm_mask_stragy', default='vanilla', type=str,
                         help='specify masking strategy for MLM (e.g. antibody: cdr_vanilla; cdr_one)')
-    parser.add_argument('--embed_modelNm', default=None, type=str,
-                        help='model name for embedding (bert_1_rp75,bert_[1,2,3,4]_rp15)')
-    parser.add_argument('--neighbor_strategy', default='knn', choices=['full','knnDistCut','distCut','knn','random','sequential','noGS'], help='strategy to define neighbors in graph, used for seq_structure_multi_task dataset')
-    parser.add_argument('--knn_value', default=20, type=int,
-                        help='num of k nearest neighbors in graph, used for seq_structure_multi_task dataset')
-    parser.add_argument('--dist_cutoff', default=12.0, type=float,
-                        help='max ditance in angstrom to define neighbors in graph, used for seq_structure_multi_task dataset')
     parser.add_argument('--sa_config_path', default=None, type=str,
                         help='path to config file of simulated annealing')
     parser.add_argument('--with_func_surrogates', action='store_true', help='Whether to apply function surrogate models in simulated annealing')
@@ -172,7 +159,6 @@ def create_eval_parser(base_parser: argparse.ArgumentParser) -> argparse.Argumen
     parser.add_argument('--assign_edit_num', action='store_true', help='user defined edit numbers, instead of using mutation rate')
     
     return parser
-
 
 def create_embed_parser(base_parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -192,7 +178,6 @@ def create_embed_parser(base_parser: argparse.ArgumentParser) -> argparse.Argume
                              'of disk space.')
     parser.set_defaults(task='embed')
     return parser
-
 
 def create_distributed_parser(base_parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(add_help=False, parents=[base_parser])
@@ -248,7 +233,6 @@ def run_train(args: typing.Optional[argparse.Namespace] = None, env=None) -> Non
     train_args = {name: arg_dict[name] for name in arg_names}
     print('_>main/run_train, train_args:{}'.format(train_args))
     training.run_train(**train_args)
-
 
 def run_eval(args: typing.Optional[argparse.Namespace] = None) -> typing.Dict[str, float]:
     if args is None:
@@ -344,12 +328,12 @@ def run_antibody_engineer(args: typing.Optional[argparse.Namespace] = None) -> t
 if __name__ == '__main__':
     run_type = sys.argv[1]
     if run_type == 'run_train_distributed':
-      run_train_distributed()
+        run_train_distributed()
     elif run_type == 'run_train':
-      run_train()
+        run_train()
     elif run_type == 'run_eval':
-      run_eval()
+        run_eval()
     elif run_type == 'run_antibody_engineer':
-      run_antibody_engineer()
+        run_antibody_engineer()
     else:
       print('wrong cmd to run')

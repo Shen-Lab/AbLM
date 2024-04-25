@@ -491,16 +491,7 @@ def run_eval_epoch(eval_loader: DataLoader,
     
     ## antibody task related
     mlm_mask_stragy = kwargs.get('mlm_mask_stragy', None)
-    mlm_maskStragy_id = f'_{mlm_mask_stragy}' if mlm_mask_stragy is not None else ''
-    #embed_modelNm = kwargs.get('embed_modelNm', None)
-    
-    ## mutagenesis
-    mutgsis_set = kwargs.get('mutgsis_set', None)
-
-    # load some config params
-    num_layers = model_config.num_hidden_layers
-    num_heads = model_config.num_attention_heads
-    head_selector = model_config.head_selector
+    mlm_maskStragy_id = f'_{mlm_mask_stragy}' if mlm_mask_stragy is not None else ''    
 
     save_outputs = []
     metric_values = {} # Dict[str,Any]
@@ -705,8 +696,8 @@ def run_train(model_type: str,
               task: str,
               learning_rate: float = 1e-4,
               batch_size: int = 1024,
-              num_train_epochs: int = 10,
-              num_train_total_epochs: int = 300,
+              num_train_epochs: int = 200,
+              num_train_total_epochs: int = 500,
               num_log_iter: int = 20,
               fp16: bool = False,
               fp16_opt_level: str = 'O1',
@@ -741,10 +732,7 @@ def run_train(model_type: str,
               mlm_mask_stragy: str = 'vanilla',
               balancing: bool = True,
               lr_scheduler: str = 'constant',
-              save_checkpoint: bool = True,
-              neighbor_strategy: str = 'knn',
-              knn_value: int = 20,
-              dist_cutoff: float = 12.0) -> None:
+              save_checkpoint: bool = True) -> None:
 
     # SETUP AND LOGGING CODE #
     input_args = locals() # the dictionary of current local symbol table
@@ -752,6 +740,9 @@ def run_train(model_type: str,
 
     exp_dir = utils.get_expname(exp_name, task, model_type)
     
+    if num_train_total_epochs < num_train_epochs:
+        num_train_total_epochs = num_train_epochs
+
     ## if 'best' is given as pretrained_epoch
     if isinstance(pretrained_epoch, str) and pretrained_epoch.lower() == 'best':
         pretrained_epoch = None
@@ -779,8 +770,8 @@ def run_train(model_type: str,
     model = model.to(device)
 
     # setup the datasets , model_config
-    train_dataset = utils.setup_dataset(task, data_dir, train_split, tokenizer, data_format, in_memory=False, mlm_mask_stragy=mlm_mask_stragy, neighbor_strategy=neighbor_strategy, knn_value=knn_value, dist_cutoff=dist_cutoff, model_config=model.config)
-    valid_dataset = utils.setup_dataset(task, data_dir, valid_split, tokenizer, data_format, in_memory=False, mlm_mask_stragy=mlm_mask_stragy, neighbor_strategy=neighbor_strategy, knn_value=knn_value, dist_cutoff=dist_cutoff, model_config=model.config)
+    train_dataset = utils.setup_dataset(task, data_dir, train_split, tokenizer, data_format, in_memory=False, mlm_mask_stragy=mlm_mask_stragy, model_config=model.config)
+    valid_dataset = utils.setup_dataset(task, data_dir, valid_split, tokenizer, data_format, in_memory=False, mlm_mask_stragy=mlm_mask_stragy, model_config=model.config)
     train_loader = utils.setup_loader(
         train_dataset, batch_size, local_rank, n_gpu,
         gradient_accumulation_steps, num_workers, balancing=balancing)
@@ -939,11 +930,7 @@ def run_eval(model_type: str,
              metrics: typing.Tuple[str, ...] = (),
              log_level: typing.Union[str, int] = logging.INFO,
              mutgsis_set: str = None,
-             mlm_mask_stragy: str = None,
-             embed_modelNm: str = None,
-             neighbor_strategy: str = 'knn',
-             knn_value: int = 20,
-             dist_cutoff: float = 8.0) -> typing.Dict[str, float]:
+             mlm_mask_stragy: str = None) -> typing.Dict[str, float]:
 
     # for solving `RuntimeError: received 0 items of ancdata`
     torch.multiprocessing.set_sharing_strategy('file_system')
@@ -963,17 +950,7 @@ def run_eval(model_type: str,
     ## if 'best' is given as pretrained_epoch
     if isinstance(pretrained_epoch, str) and pretrained_epoch.lower() == 'best':
         pretrained_epoch = None
-    ## if embed_modelNm is given, at default use best epoch
-    if embed_modelNm is not None:
-        if re.search(r'rp75', embed_modelNm):
-            pretrained_epoch = 224
-        elif re.search(r'rp15', embed_modelNm):
-            pretrained_epoch = 729
-        else:
-            Exception(f'invalid embed_modelNm {embed_modelNm}')
-
-    
-
+     
     model = registry.get_task_model(model_type, task, model_config_file, from_pretrained, extra_config_file, pretrained_epoch)
     model.resize_token_embeddings(vocab_num) ## append 'X' token; take care of tie_weights, resize mlm-head bias module
 
@@ -983,7 +960,7 @@ def run_eval(model_type: str,
     runner = ForwardRunner(model, device, n_gpu)
     runner.initialize_distributed_model()
     valid_dataset = utils.setup_dataset(task, data_dir, split, tokenizer,
-        data_format, in_memory=False, mutgsis_set=mutgsis_set, mlm_mask_stragy=mlm_mask_stragy, neighbor_strategy=neighbor_strategy, knn_value=knn_value, dist_cutoff=dist_cutoff, model_config=model_config)
+        data_format, in_memory=False, mutgsis_set=mutgsis_set, mlm_mask_stragy=mlm_mask_stragy, model_config=model_config)
     valid_loader = utils.setup_loader(
         valid_dataset, batch_size, local_rank, n_gpu,
         1, num_workers)
@@ -1011,9 +988,7 @@ def run_eval(model_type: str,
                                                       eval_save_dir=eval_save_dir,
                                                       output_pred=False,
                                                       is_master=is_master,
-                                                      mlm_mask_stragy=mlm_mask_stragy,
-                                                      embed_modelNm=embed_modelNm,
-                                                      mutgsis_set=mutgsis_set)
+                                                      mlm_mask_stragy=mlm_mask_stragy)
     
     if metrics_to_save:
       logger.info(f"eval_report*> {';'.join(f'{name}: {val}' for name, val in metrics_to_save.items())}")
