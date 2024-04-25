@@ -34,7 +34,7 @@ Follow the following steps to finetune the meta protein language model over your
 1. First download weights of pre-trained meta PLM [pretrained_meta_model.zip](https://zenodo.org/records/10989935), and unzip to a local folder.
 
 2. Prepare your own antibody finetuning sequence dataset. The information of each sample should be stored in key-value format with key definitions below:
-```json
+```text
 "seqVH": str, sequence of the heavy chain variable region,
 "seqVL": str, sequence of the light chain variable region,
 "entityH": str, self-defined identifier of VH, 
