@@ -1,7 +1,7 @@
 # AbLM
 This repo contains the antibody language model used in the paper [Physics-driven structural docking and protein language models accelerate antibody screening and design for broad-spectrum antiviral therapy](https://www.biorxiv.org/content/10.1101/2024.03.01.582176v1)
 
-A series of language models were finetuned for antibody sequences based on a meta in-house protein language model (see "B1" in Table 5 of [this preprint](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10418537/) pre-trained over 12 million pfam domain sequences (RP15). The input is composed of paired variable regions from heavy and light chains of the antibody. Since the pre-trained PLM only admits single chain inputs, two strategies were applied to facilitate double chain inputs:
+A series of language models were finetuned for antibody sequences based on a meta in-house protein language model (see "B1" in Table 5 of [this preprint](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10418537/)) pre-trained over 12 million pfam domain sequences (RP15). The input is composed of paired variable regions from heavy and light chains of the antibody. Since the pre-trained PLM only admits single chain inputs, two strategies were applied to facilitate double chain inputs:
 
 1. "seqConcate": concatenate a set of paired VH and VL sequences into a single sequence with a special token `<SEP>`.
 2. "seqIndiv": utilize two encoders admitting VH and VL sequences respectively. The weights of two encoders are always tied together.
