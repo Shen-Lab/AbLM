@@ -15,7 +15,7 @@ The in-house meta pLM was trained with the Masked Language Modeling objective. F
 3. "CDR-margin": randomly pick one CDR out of six and mask all residues within
 4. "CDR-pair": mask all residues within one heavy CDR region one light CDR region.
 
-We seleced the best configuration in the sense of language modeling based on the perplexity over SabDab test set and two other independent test sets, which is the "seqIndiv" architecture and the "CDR-margin" masking mechanism.    
+We seleced the best configuration in the sense of language modeling based on the perplexity over SabDab test set and two other independent test sets, which is the "seqIndiv" architecture and the "CDR-margin" masking mechanism:      
 
 ![test performance](illustrations/perf_config.png)
 
